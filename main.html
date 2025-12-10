@@ -1,0 +1,57 @@
+<script type="module">
+  // Firebase imports from CDN
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
+
+  // TODO: Replace with YOUR Firebase config
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const storage = getStorage(app);
+
+  const video = document.getElementById("video");
+  const canvas = document.getElementById("canvas");
+  const photo = document.getElementById("photo");
+
+  // Start camera and auto-capture as soon as video is ready
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      video.srcObject = stream;
+
+      video.onloadedmetadata = () => {
+        setTimeout(autoCapture, 600); // small delay so camera focuses
+      };
+    })
+    .catch(err => {
+      alert("Camera permission denied.");
+    });
+
+  async function autoCapture() {
+    // Draw video frame to canvas
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL("image/png");
+
+    photo.src = dataUrl;
+
+    // Upload immediately
+    await uploadImage(dataUrl);
+  }
+
+  async function uploadImage(dataUrl) {
+    const filename = "auto_photo_" + Date.now() + ".png";
+    const storageRef = ref(storage, "uploads/" + filename);
+
+    await uploadString(storageRef, dataUrl, "data_url");
+    alert("Photo captured + uploaded automatically!");
+  }
+</script>
