@@ -1,57 +1,82 @@
-<script type="module">
-  // Firebase imports from CDN
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-  import { getStorage, ref, uploadString } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  // TODO: Replace with YOUR Firebase config
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
+  <!-- Required for camera permission on mobile browsers -->
+  <meta http-equiv="Permissions-Policy" content="camera=(self)" />
 
-  const app = initializeApp(firebaseConfig);
-  const storage = getStorage(app);
+  <title>Auto Camera Capture</title>
 
-  const video = document.getElementById("video");
-  const canvas = document.getElementById("canvas");
-  const photo = document.getElementById("photo");
+  <style>
+    body {
+      background: #111;
+      color: white;
+      text-align: center;
+      font-family: Arial;
+    }
+    video {
+      width: 90%;
+      max-width: 450px;
+      border-radius: 12px;
+      margin-top: 20px;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
 
-  // Start camera and auto-capture as soon as video is ready
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(stream => {
-      video.srcObject = stream;
+  <h2>Camera Auto Capture Test</h2>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
 
-      video.onloadedmetadata = () => {
-        setTimeout(autoCapture, 600); // small delay so camera focuses
-      };
-    })
-    .catch(err => {
-      alert("Camera permission denied.");
-    });
+  <p id="status">Waiting for camera…</p>
 
-  async function autoCapture() {
-    // Draw video frame to canvas
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+  <script>
+    async function startCamera() {
+      try {
+        document.getElementById("status").innerText = "Requesting camera...";
 
-    canvas.getContext("2d").drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL("image/png");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" }, // front camera
+          audio: false
+        });
 
-    photo.src = dataUrl;
+        const video = document.getElementById("video");
+        video.srcObject = stream;
 
-    // Upload immediately
-    await uploadImage(dataUrl);
-  }
+        video.onloadedmetadata = () => {
+          video.play();
+          setTimeout(capturePhoto, 1500);
+        };
 
-  async function uploadImage(dataUrl) {
-    const filename = "auto_photo_" + Date.now() + ".png";
-    const storageRef = ref(storage, "uploads/" + filename);
+      } catch (err) {
+        document.getElementById("status").innerHTML =
+          "❌ Camera permission denied or blocked.<br><br>" +
+          err.message +
+          "<br><br>Go to Browser Settings → Site Settings → Allow Camera for this site.";
+      }
+    }
 
-    await uploadString(storageRef, dataUrl, "data_url");
-    alert("Photo captured + uploaded automatically!");
-  }
-</script>
+    function capturePhoto() {
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      document.getElementById("status").innerText = "📸 Photo captured automatically!";
+    }
+
+    startCamera();
+  </script>
+
+</body>
+</html>
