@@ -1,125 +1,51 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+  async function startCamera() {
+    try {
+      document.getElementById("status").innerText = "Requesting camera...";
 
-  <!-- Required for camera permission on mobile browsers -->
-  <meta http-equiv="Permissions-Policy" content="camera=(self)" />
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false
+      });
 
-  <title>Auto Camera Capture</title>
-
-  <style>
-    body {
-      background: #111;
-      color: white;
-      text-align: center;
-      font-family: Arial;
-    }
-    video {
-      width: 90%;
-      max-width: 450px;
-      border-radius: 12px;
-      margin-top: 20px;
-    }
-    #status {
-      margin-top: 20px;
-      font-size: 18px;
-    }
-  </style>
-
-  <!-- Firebase CDN -->
-  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-storage.js"></script>
-
-</head>
-<body>
-
-  <h2>Camera Auto Capture Test</h2>
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas" style="display:none;"></canvas>
-
-  <p id="status">Waiting for camera…</p>
-
-  <script>
-    /* ------------------------------
-       🔥 Firebase Configuration
-    ------------------------------ */
-    const firebaseConfig = {
-      apiKey: "AIzaSyBOJ0RaxZN9fak3nAv5G0ZoV23XjSGm_wo",
-      authDomain: "main-camera.firebaseapp.com",
-      projectId: "main-camera",
-      storageBucket: "main-camera.appspot.com", // FIXED
-      messagingSenderId: "259782254190",
-      appId: "1:259782254190:web:2757ef530aa1b000b3d07f"
-    };
-
-    const app = firebase.initializeApp(firebaseConfig);
-    const storage = firebase.storage();
-
-    /* ------------------------------
-       📷 Start Camera
-    ------------------------------ */
-    async function startCamera() {
-      try {
-        document.getElementById("status").innerText = "Requesting camera...";
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-          audio: false
-        });
-
-        const video = document.getElementById("video");
-        video.srcObject = stream;
-
-        video.onloadedmetadata = () => {
-          video.play();
-          setTimeout(capturePhoto, 1500); // auto-capture after 1.5 sec
-        };
-
-      } catch (err) {
-        document.getElementById("status").innerHTML =
-          "❌ Camera permission denied.<br><br>" +
-          err.message;
-      }
-    }
-
-    /* ------------------------------
-       📸 Capture + Upload to Firebase
-    ------------------------------ */
-    function capturePhoto() {
       const video = document.getElementById("video");
-      const canvas = document.getElementById("canvas");
-      const ctx = canvas.getContext("2d");
+      video.srcObject = stream;
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      video.onloadedmetadata = () => {
+        video.play();
+        setTimeout(capturePhoto, 1500); // auto capture after 1.5 sec
+      };
 
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      document.getElementById("status").innerText = "📸 Photo captured! Uploading...";
-
-      canvas.toBlob(async (blob) => {
-        const filename = `photo_${Date.now()}.jpg`;
-        const storageRef = storage.ref().child(filename);
-
-        try {
-          const snapshot = await storageRef.put(blob);
-          const url = await snapshot.ref.getDownloadURL();
-
-          document.getElementById("status").innerHTML =
-            "✅ Uploaded!<br><br>Download URL:<br>" +
-            `<a href='${url}' target='_blank' style='color:cyan;'>${url}</a>`;
-
-        } catch (e) {
-          document.getElementById("status").innerText =
-            "❌ Upload failed: " + e.message;
-        }
-      }, "image/jpeg");
+    } catch (err) {
+      document.getElementById("status").innerHTML =
+        "❌ Camera permission denied.<br><br>" +
+        err.message;
     }
+  }
 
-    startCamera();
-  </script>
+  function capturePhoto() {
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
 
-</body>
-</html>
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    document.getElementById("status").innerText = "📸 Photo captured! Saving...";
+
+    // Convert image to a downloadable link
+    const imageData = canvas.toDataURL("image/jpeg");
+
+    // Create a download element
+    const a = document.createElement("a");
+    a.href = imageData;
+    a.download = "photo_" + Date.now() + ".jpg";  // filename
+    a.click();
+
+    document.getElementById("status").innerText = "✅ Photo saved to your downloads folder!";
+  }
+
+  startCamera();
+</script>
