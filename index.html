@@ -4,28 +4,23 @@
 <meta charset="UTF-8">
 <title>Auto Camera Upload</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <meta http-equiv="Permissions-Policy" content="camera=(self)">
-
 <style>
-    body { background:#111; color:white; text-align:center; padding:20px; font-family:Arial, sans-serif; }
-    video { width:90%; max-width:450px; border-radius:12px; margin-top:20px; }
+    body { background:#111; color:white; text-align:center; padding:20px; font-family:Arial; }
+    video { width:90%; max-width:450px; border-radius:12px; margin-top:20px; background:#222; }
     #status { margin-top:20px; font-size:18px; }
 </style>
 </head>
 
 <body>
-
 <h2>Auto Camera Capture → Upload</h2>
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas" style="display:none;"></canvas>
-
 <p id="status">Opening camera…</p>
 
 <script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// ✅ Your Supabase credentials
 const supabase = createClient(
     "https://tizggefikijllpwgpsqy.supabase.co",
     "sb_publishable_FTRXKZXq_uCSylUM1B-LYw_zweLG2OX"
@@ -35,37 +30,26 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const statusEl = document.getElementById("status");
 
-// 🎥 Start front camera
+// Start Camera
 async function startCamera() {
     try {
         statusEl.textContent = "Requesting camera…";
 
-        console.log("Requesting camera with:", { video: true });
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: true
-        });
-
-        console.log("Camera stream:", stream);
-
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         video.srcObject = stream;
-        statusEl.textContent = "Camera started…";
 
         video.onloadedmetadata = () => {
-            console.log("Metadata loaded");
             setTimeout(captureAndUpload, 1500);
         };
-
     } catch (err) {
-        console.error("Camera error:", err);
         statusEl.innerHTML = "❌ Camera error:<br>" + err.name + "<br>" + err.message;
+        console.error(err);
     }
 }
 
-
-// 📸 Capture + Upload
+// Capture + Upload
 async function captureAndUpload() {
-    statusEl.textContent = "Capturing photo…";
+    statusEl.textContent = "Capturing…";
 
     const ctx = canvas.getContext("2d");
     canvas.width = video.videoWidth;
@@ -73,7 +57,6 @@ async function captureAndUpload() {
     ctx.drawImage(video, 0, 0);
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
-
     const filename = "photo_" + Date.now() + ".jpg";
 
     statusEl.textContent = "Uploading…";
@@ -84,11 +67,10 @@ async function captureAndUpload() {
 
     if (error) {
         statusEl.textContent = "❌ Upload failed: " + error.message;
-        console.error(error);
         return;
     }
 
-    statusEl.innerHTML = `✅ Uploaded!<br>File: ${filename}<br><br>You can view it in your Supabase Storage.`;
+    statusEl.innerHTML = "✅ Uploaded!<br>Saved as: " + filename;
 }
 
 startCamera();
