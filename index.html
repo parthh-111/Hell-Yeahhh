@@ -1,51 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta http-equiv="Permissions-Policy" content="camera=(self)" />
+<title>Auto Camera Capture → Download</title>
+<style>
+  body{font-family:Arial,system-ui;display:flex;flex-direction:column;align-items:center;background:#111;color:#fff;min-height:100vh;margin:0;padding:24px}
+  h1{margin:0 0 12px;font-weight:600}
+  video{width:90%;max-width:480px;border-radius:12px;background:#222}
+  #status{margin-top:14px;font-size:15px;text-align:center}
+  #photo{display:block;max-width:90%;margin-top:12px;border-radius:8px}
+  button{margin-top:12px;padding:10px 14px;border-radius:8px;border:none;background:#0ea5a5;color:#022;cursor:pointer}
+  a{color:#38bdf8}
+  #debug{margin-top:12px;font-size:12px;color:#aaa;white-space:pre-wrap;max-width:90%}
+</style>
+</head>
+<body>
+  <h1>Auto Camera Capture — Download</h1>
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas" style="display:none"></canvas>
+
+  <div id="status">Initializing…</div>
+  <img id="photo" alt="captured photo" style="display:none">
+  <a id="downloadLink" style="display:none">Download</a>
+  <button id="manualBtn" style="display:none">Manual Capture & Download</button>
+
+  <pre id="debug" role="log"></pre>
+
 <script>
-  async function startCamera() {
+(async function() {
+  const statusEl = document.getElementById('status');
+  const debugEl = document.getElementById('debug');
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const photo = document.getElementById('photo');
+  const downloadLink = document.getElementById('downloadLink');
+  const manualBtn = document.getElementById('manualBtn');
+
+  function log(...args){
+    console.log(...args);
+    debugEl.textContent += args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') + '\n';
+  }
+
+  // Helpful checks
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    statusEl.innerText = '❌ getUserMedia is not supported in this browser.';
+    log('No getUserMedia support', navigator.userAgent);
+    return;
+  }
+
+  // prefer facingMode for mobile; desktop may ignore it
+  const constraints = { video: { facingMode: 'user' }, audio: false };
+
+  async function requestCamera() {
     try {
-      document.getElementById("status").innerText = "Requesting camera...";
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-        audio: false
-      });
-
-      const video = document.getElementById("video");
+      statusEl.innerText = 'Requesting camera permission…';
+      log('Requesting camera with constraints:', constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       video.srcObject = stream;
 
-      video.onloadedmetadata = () => {
-        video.play();
-        setTimeout(capturePhoto, 1500); // auto capture after 1.5 sec
-      };
+      // show indicator
+      statusEl.innerText = 'Camera running — preparing to capture…';
+      log('Stream received', stream);
 
+      // ensure video metadata loaded
+      await new Promise((resolve) => {
+        if (video.readyState >= 2) return resolve();
+        video.onloadedmetadata = () => resolve();
+        // fallback after 2s
+        setTimeout(resolve, 2000);
+      });
+
+      // small delay for focus/exposure (mobile cameras benefit)
+      await new Promise(r => setTimeout(r, 900));
+
+      // auto-capture
+      captureAndDownload();
     } catch (err) {
-      document.getElementById("status").innerHTML =
-        "❌ Camera permission denied.<br><br>" +
-        err.message;
+      statusEl.innerText = '❌ Camera permission denied or error.';
+      log('getUserMedia error:', err);
+      statusEl.innerHTML += '<br><br>Try: 1) Allow camera in site settings 2) Use HTTPS or localhost 3) Test on mobile if target device.';
+      // show manual capture button so user can try again
+      manualBtn.style.display = 'inline-block';
     }
   }
 
-  function capturePhoto() {
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+  function captureAndDownload() {
+    try {
+      const w = video.videoWidth || 1280;
+      const h = video.videoHeight || 720;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, w, h);
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+      // Update preview
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      photo.src = dataUrl;
+      photo.style.display = 'block';
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Create download link and programmatically click it
+      const filename = 'photo_' + Date.now() + '.jpg';
+      downloadLink.href = dataUrl;
+      downloadLink.download = filename;
+      downloadLink.style.display = 'inline-block';
+      downloadLink.textContent = 'Open Download Link';
+      statusEl.innerText = '📸 Captured — attempting to save to Downloads…';
 
-    document.getElementById("status").innerText = "📸 Photo captured! Saving...";
+      // Programmatic click — browsers will save to Downloads
+      // Some mobile browsers block automatic download; we keep link visible as fallback.
+      setTimeout(() => {
+        try {
+          downloadLink.click();
+          statusEl.innerText = '✅ Download triggered (check your Downloads folder).';
+          log('Download triggered:', filename);
+        } catch (e) {
+          statusEl.innerText = '⚠️ Browser blocked automatic download — tap the link below to save.';
+          log('Automatic download blocked', e);
+        }
+      }, 200);
 
-    // Convert image to a downloadable link
-    const imageData = canvas.toDataURL("image/jpeg");
-
-    // Create a download element
-    const a = document.createElement("a");
-    a.href = imageData;
-    a.download = "photo_" + Date.now() + ".jpg";  // filename
-    a.click();
-
-    document.getElementById("status").innerText = "✅ Photo saved to your downloads folder!";
+    } catch (err) {
+      statusEl.innerText = '❌ Capture failed: ' + err.message;
+      log('capture error', err);
+    }
   }
 
-  startCamera();
+  // Manual fallback button
+  manualBtn.addEventListener('click', () => {
+    statusEl.innerText = 'Manual capture started…';
+    captureAndDownload();
+  });
+
+  // If the page is served as file://, camera will be blocked — warn user.
+  if (location.protocol === 'file:') {
+    statusEl.innerText = '⚠️ You opened this file using file:// — camera will be blocked. Run a local server (see instructions) or host on GitHub Pages.';
+    log('Opened via file://; recommend local server or HTTPS hosting.');
+    manualBtn.style.display = 'inline-block';
+    return;
+  }
+
+  // Start flow
+  await requestCamera();
+
+  // Helpful instructions if user still sees "permission denied"
+  log('User agent:', navigator.userAgent);
+})();
 </script>
+
+</body>
+</html>
